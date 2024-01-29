@@ -8,11 +8,11 @@ if ! docker network ls | grep -q superagent_network; then
 fi
 
 # Run the core services
-docker-compose -f docker-compose.yml \
+docker compose -f docker-compose.yml \
         -f superagent/db/docker-compose.pgdb.yml \
         -f superagent/db/docker-compose.pgadmin.yml \
         -f superagent/motorhead/docker-compose.motorhead.yml \
-        -f ui/docker-compose.ui.yml \
+        # -f ui/docker-compose.ui.yml \
         up \
         --build \
         -d

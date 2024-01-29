@@ -1,6 +1,6 @@
-# Supabase docker-compose setup for Superagent
+# Supabase docker compose setup for Superagent
 
-A basic configuration is provided here for using Supabase with Superagent. Based on the official docker-compose configuration from Supabase.
+A basic configuration is provided here for using Supabase with Superagent. Based on the official docker compose configuration from Supabase.
 
 ## Supabase for Superagent Usage guide
 
@@ -10,7 +10,7 @@ A basic configuration is provided here for using Supabase with Superagent. Based
 
 [https://supabase.com/docs/guides/self-hosting/docker](https://supabase.com/docs/guides/self-hosting/docker)
 
-## Supabase docker-compose official github repo
+## Supabase docker compose official github repo
 
 [https://github.com/supabase/supabase/blob/master/docker/docker-compose.yml](https://github.com/supabase/supabase/blob/master/docker/docker-compose.yml)
 

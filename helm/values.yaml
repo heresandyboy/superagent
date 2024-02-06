@@ -1,0 +1,483 @@
+# Default values for superagent.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  api:
+    # You must docker build and push the api to a container registry and provide a valid image repository and tag
+    repository: <-- YOUR API IMAGE REPOSITORY -->
+    tag: <-- YOUR API IMAGE TAG -->
+    pullPolicy: IfNotPresent
+    ## Optionally specify an array of imagePullSecrets.
+    ## Secrets must be manually created in the namespace.
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+    ##
+    imagePullSecrets: []
+    #   - myRegistryKeySecretName
+  ui:
+    # You must docker build and push the ui to a container registry and provide a valid image repository and tag
+    repository: <-- YOUR UI IMAGE REPOSITORY -->
+    tag: <-- YOUR UI IMAGE TAG -->
+    pullPolicy: IfNotPresent
+    ## Optionally specify an array of imagePullSecrets.
+    ## Secrets must be manually created in the namespace.
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+    ##
+    imagePullSecrets: []
+    #   - myRegistryKeySecretName
+
+api:
+  enabled: true
+  replicas: 1
+  resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+  container:
+    command: ['/bin/sh', '-c']
+    args:
+      [
+        'sleep 3; prisma migrate deploy; gunicorn --bind :$PORT --workers 2 --timeout 0  --worker-class uvicorn.workers.UvicornWorker  --threads 8 app.main:app',
+      ]
+
+  # env: {}
+  env:
+  ## Pick the env vars you want to set from the list below and provide the value in your own values.yml
+  ## Please check the superagent README files and documentation for more information
+  - name: PORT
+    value: "8080"
+  - name: POSTGRES_DB_HOST
+    value: "pgdb"
+  - name: POSTGRES_DB_PORT
+    value: "5432"
+  - name: OPENAI_API_KEY
+    value: ""
+  - name: DATABASE_URL
+    value: "postgresql://postgres:password@pgdb:5432/superagent"
+  - name: DATABASE_MIGRATION_URL
+    value: "postgresql://postgres:password@pgdb:5432/superagent"
+  - name: DATABASE_SHADOW_URL
+    value: ""
+  - name: JWT_SECRET
+    value: ""
+  - name: OPENROUTER_API_KEY
+    value: ""
+  - name: MEMORY_API_URL
+    value: "http://motorhead:8081"
+  - name: VECTORSTORE
+    value: "" # pick from "astra", "pinecone", "qdrant", "weaviate", and complete the relevant values below.
+  - name: QDRANT_API_KEY
+    value: ""
+  - name: QDRANT_HOST
+    value: ""
+  - name: QDRANT_INDEX
+    value: "superagent"
+  - name: WEAVIATE_API_KEY
+    value: ""
+  - name: WEAVIATE_INDEX
+    value: ""
+  - name: WEAVIATE_URL
+    value: ""
+  - name: PINECONE_ENVIRONMENT
+    value: ""
+  - name: PINECONE_API_KEY
+    value: ""
+  - name: PINECONE_INDEX
+    value: ""
+  - name: ASTRA_DB_ID
+    value: ""
+  - name: ASTRA_DB_REGION
+    value: ""
+  - name: ASTRA_DB_APPLICATION_TOKEN
+    value: ""
+  - name: COLLECTION_NAME
+    value: ""
+  - name: KEYSPACE_NAME
+    value: ""
+  - name: E2B_API_KEY
+    value: "e2b_21b611cdf96fad06a6a819708734be20cfe8b777"
+  - name: REPLICATE_API_TOKEN
+    value: ""
+  - name: LANGFUSE_PUBLIC_KEY
+    value: ""
+  - name: LANGFUSE_SECRET_KEY
+    value: ""
+  - name: LANGFUSE_HOST
+    value: ""
+  - name: LANGCHAIN_TRACING_V2
+    value: "False"
+  - name: LANGCHAIN_ENDPOINT
+    value: "https://api.smith.langchain.com"
+  - name: LANGCHAIN_API_KEY
+    value: ""
+  - name: LANGSMITH_PROJECT_ID
+    value: ""
+  - name: LAMINI_API_KEY
+    value: ""
+  - name: SEGMENT_WRITE_KEY
+    value: ""
+  - name: AGENTOPS_API_KEY
+    value: ""
+  - name: AGENTOPS_ORG_KEY
+    value: ""
+
+  # CusterIP service settings
+  service:
+    type: ClusterIP
+    port: 8080
+    annotations: {}
+    labels: {}
+    clusterIP: ''
+  # Or alternative NodePort service settings
+  # service:
+  #   type: NodePort
+  #   port: 8080
+  #   annotations: {}
+  #   labels: {}
+
+  health:
+    startup: /
+    ready: /
+    liveness: /
+    initialDelaySeconds: 60
+
+ui:
+  enabled: true
+  replicas: 1
+  resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+  ## Workaround for NEXT_PUBLIC env vars, which can usually only be set at build time,
+  ## this script overwrites the Next.js public env vars at container startup with the values from your helm values env: section
+  ## Comment out the container section if you wish to provide your own '.env.production' file seperately.
+  container:
+    command: ['/bin/bash', '-c']
+    args: ['./override-env.sh']
+  ## Pick the env vars you want to set from the list below and provide the value in your deployment values.yml
+  ## Please check the superagent README files and documentation for more information
+  env:
+    - name: PORT
+      value: "3000"
+    - name: SUPABASE_DB_URL
+      value: "postgresql://postgres:postgres-password@supabase-db:5433/postgres"
+    - name: SUPABASE_URL
+      value: "http://supabase-kong:8000"
+    - name: SUPABASE_KEY
+      value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzAwOTU2ODAwLAogICJleHAiOiAxODU4ODA5NjAwCn0.pDb5AEqK2KN5ItaveoB2gl-t1nXJ6MGN0wMSZtvEc1o"
+    - name: SUPABASE_ACCESS_TOKEN
+      value: "sbp_e7d2d3cb82e39105bad37ce21eade8aef6b014c9"
+    - name: GITHUB_CLIENT_ID
+      value: "15d164ef25ebec67c85b"
+    - name: GITHUB_CLIENT_SECRET
+      value: "deb5f6234fe71683fbd21a2ee50900968fe7b039"
+    - name: NEXT_PUBLIC_SUPABASE_URL
+      value: "http://supabase-kong:8000"
+    - name: NEXT_PUBLIC_SUPABASE_ANON_KEY
+      value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzAwOTU2ODAwLAogICJleHAiOiAxODU4ODA5NjAwCn0.pDb5AEqK2KN5ItaveoB2gl-t1nXJ6MGN0wMSZtvEc1o"
+    - name: NEXT_PUBLIC_SUPERAGENT_API_URL
+      value: "http://superagent-api:8080/api/v1"
+    - name: NEXT_PUBLIC_SUPABASE_STORAGE_NAME
+      value: "superagent"
+    - name: NEXT_PUBLIC_APIDECK_API_KEY
+      value: ""
+    - name: NEXT_PUBLIC_APIDECK_API_ID
+      value: ""
+    - name: NEXT_PUBLIC_STRIPE_SECRET_KEY
+      value: ""
+    - name: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+      value: ""
+    - name: NEXT_PUBLIC_LANGFUSE_PUBLIC_KEY
+      value: "pk-lf-a771713f-3e11-41df-9f78-ebea7319b6d4"
+    - name: NEXT_PUBLIC_LANGFUSE_BASE_URL
+      value: "http://langfuse-server:3100"
+
+  service:
+    type: ClusterIP
+    port: 3000
+    annotations: {}
+    labels: {}
+    clusterIP: ''
+  # Or alternative NodePort service settings
+  # service:
+  #   type: NodePort
+  #   port: 3000
+  #   annotations: {}
+  #   labels: {}
+
+  health:
+    startup: /
+    ready: /
+    liveness: /
+    initialDelaySeconds: 60
+
+ingress:
+  enabled: false
+  className: ''
+  annotations:
+    {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+    # nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    # nginx.ingress.kubernetes.io/proxy-body-size: 15m
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: superagent-ui.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+          serviceName: superagent-ui
+    - host: superagent-api.local
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: superagent-api
+
+
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - superagent-example.local
+
+## Example alternative ingress AWS ALB ingress controller
+# ingress:
+#   enabled: false
+#   className: ''
+#   annotations:
+#     alb.ingress.kubernetes.io/group.name: internal-$(Build.Repository.Name)
+#     kubernetes.io/ingress.class: alb
+#     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+#     alb.ingress.kubernetes.io/scheme: internal
+#     alb.ingress.kubernetes.io/backend-protocol: HTTP
+#   hosts:
+#     - host: 'superagent.aws.domain.co.uk'
+#       paths:
+#         - path: '/*'
+#           pathType: ImplementationSpecific
+#           serviceName: 'superagent-ui'
+
+#   - host: superagent-api.aws.domain.co.uk
+#     paths:
+#     - path: '/*'
+#       pathType: ImplementationSpecific
+#       serviceName: superagent-api
+
+#   tls: []
+#   #  - secretName: chart-example-tls
+#   #    hosts:
+#   #      - superagent-example.local
+
+# Global node selector
+# If set, this will apply to all superagent components
+# Individual components can be set to a different node selector
+nodeSelector: {}
+
+# Global tolerations
+# If set, this will apply to all superagent components
+# Individual components can be set to a different tolerations
+tolerations: []
+
+# Global affinity
+# If set, this will apply to all superagent components
+# Individual components can be set to a different affinity
+affinity: {}
+
+###################################
+# SUPERAGENT API - POSTGRES DATABASE
+# uses the bitnami/postgresql helm charts which is defined as a sub chart
+# For more information on configuring the postgresql sub chart see https://github.com/bitnami/charts/blob/main/bitnami/postgresql/values.yaml
+# - these configs are only used when `postgresql.enabled` is true
+###################################
+postgresql:
+  enabled: true
+  name: postgres
+  global:
+    storageClass: ''
+    postgresql:
+      auth:
+        postgresPassword: 'superagentai123456'
+        username: 'admin'
+        password: 'password'
+        database: 'superagent'
+  architecture: standalone
+  primary:
+    resources:
+      limits: {}
+      requests: {}
+    persistence:
+      enabled: true
+      storageClass: ''
+      accessModes:
+        - ReadWriteOnce
+      size: 8Gi
+
+###################################
+# SUPERAGENT UI - SUPABASE DATABASE
+# uses the bitnami/supabase helm chart which is defined as a sub chart
+# For more information on configuring the postgresql sub chart see https://github.com/bitnami/charts/blob/main/bitnami/postgresql/values.yaml
+# - these configs are only used when `postgresql.enabled` is true
+###################################
+
+supabase:
+  enabled: false
+  # global:
+  jwt:
+  # TODO: Try out bot setting a secret manually and autogenerating - how to I get the values
+    secrets: ""
+    anonKey: ""
+    serviceKey: ""
+    autoGenerate:
+      forceRun: true
+      # image:
+      #   tag: latest
+      #   pullPolicy: Always
+      # kubectlImage:
+      #   tag: latest
+      #   pullPolicy: Always
+  publicUrl: "" # TODO: set this to Supabase API Ingress URL?
+  auth:
+    enabled: true
+    replicaCount: 1
+    defaultConfig: |
+      GOTRUE_API_HOST: "0.0.0.0"
+      GOTRUE_API_PORT: {{ .Values.auth.containerPorts.http | quote }}
+      GOTRUE_SITE_URL: {{ include "supabase.studio.publicURL" . | quote }}
+      GOTRUE_URI_ALLOW_LIST: "*"
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_DB_DRIVER: "postgres"
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: "authenticated"
+      GOTRUE_JWT_ADMIN_ROLES: "service_role"
+      GOTRUE_JWT_AUD: "authenticated"
+      GOTRUE_JWT_EXP: "3600"
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_SMTP_ADMIN_EMAIL: "your-mail@example.com"
+      GOTRUE_SMTP_HOST: "smtp.example.com"
+      GOTRUE_SMTP_PORT: "587"
+      GOTRUE_SMTP_SENDER_NAME: "your-mail@example.com"
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_SMS_AUTOCONFIRM: "false"
+      GOTRUE_MAILER_URLPATHS_INVITE: "{{ include "supabase.studio.publicURL" . }}/auth/v1/verify"
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: "{{ include "supabase.studio.publicURL" . }}/auth/v1/verify"
+      GOTRUE_MAILER_URLPATHS_RECOVERY: "{{ include "supabase.studio.publicURL" . }}/auth/v1/verify"
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: "{{ include "supabase.studio.publicURL" . }}/auth/v1/verify"
+    extraConfig: {}
+    extraEnvVars: []
+    containerPorts:
+      http: 9999
+    service:
+      type: ClusterIP
+      ports:
+        http: 80
+      nodePorts:
+        http: ""
+      clusterIP: ""
+      loadBalancerIP: ""
+      annotations: {}
+  meta:
+    enabled: true
+  realtime:
+    enabled: true
+  rest:
+    enabled: true
+  storage:
+    enabled: true
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 8Gi
+  studio:
+    enabled: true
+    replicaCount: 1
+    publicURL: "" # TODO: SET TO SUPERAGENT SITE URL
+    # image:
+    #   tag: latest
+    #   pullPolicy: Always
+    resources:
+      limits: {}
+      requests: {}
+    service:
+      type: ClusterIP
+      ports:
+        http: 80
+      nodePorts:
+        http: ""
+      clusterIP: ""
+      loadBalancerIP: ""
+    ingress:
+      enabled: false
+      pathType: ImplementationSpecific
+      hostname: supabase-studio.local
+      ingressClassName: ""
+      path: /
+      annotations: {}
+      tls: false
+      selfSigned: false
+      extraHosts: []
+      extraPaths: []
+      extraTls: []
+      secrets: []
+      extraRules: []
+  volumePermissions:
+    enabled: false
+    
+  kong:
+    enabled: true
+    ingressController:
+      enabled: false
+    ingress:
+      enabled: false
+      pathType: ImplementationSpecific
+      hostname: "supabase.local"
+      path: /
+      tls: false
+      annotations: {}
+    service:
+      loadBalancerIP: ""
+      type: LoadBalancer
+      ports:
+        proxyHttp: 80
+    postgresql:
+      enabled: false
+
+  postgresql:
+    enabled: true
+    auth:
+      postgresPassword: "InsecureSupabasePostgresPassword"
+      existingSecret: ""
+    architecture: standalone
+    service:
+      ports:
+        postgresql: 5432
+  ## External PostgreSQL configuration
+  ## All of these values are only used when supabase.postgresql.enabled is set to false
+  externalDatabase:
+    host: ""
+    port: 5432
+    user: supabase_admin
+    database: postgres
+    password: ""
+    existingSecret: ""
+    existingSecretPasswordKey: ""

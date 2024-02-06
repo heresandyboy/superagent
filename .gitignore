@@ -52,3 +52,8 @@ next-env.d.ts
 v2.code-workspace
 
 google_cloud_service_key.json
+
+# helm
+helm/charts
+
+.scratch

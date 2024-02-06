@@ -47,7 +47,7 @@ api:
     command: ['/bin/sh', '-c']
     args:
       [
-        'sleep 3; prisma migrate deploy; gunicorn --bind :$PORT --workers 2 --timeout 0  --worker-class uvicorn.workers.UvicornWorker  --threads 8 app.main:app',
+        "until nc -z ${POSTGRES_DB_HOST} 5432; do echo 'waiting for ${POSTGRES_DB_HOST}:5432 to be available'; sleep 1; done && prisma migrate deploy && exec gunicorn --bind :8080 --workers 2 --timeout 0 --worker-class uvicorn.workers.UvicornWorker --threads 8 app.main:app",
       ]
 
   # env: {}
@@ -173,7 +173,7 @@ ui:
   ## Comment out the container section if you wish to provide your own '.env.production' file seperately.
   container:
     command: ['/bin/bash', '-c']
-    args: ['./override-env.sh']
+    args: ['npm run supabase:docker:push --debug && npm start']
   ## Pick the env vars you want to set from the list below and provide the value in your deployment values.yml
   ## Please check the superagent README files and documentation for more information
   env:

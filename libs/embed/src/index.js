@@ -5,7 +5,7 @@ import {SuperAgentClient} from 'superagentai-js';
 import { ChakraProvider, Box, useDisclosure, Avatar, IconButton, Icon } from '@chakra-ui/react';
 import {TbX} from "react-icons/tb"
 
-const ENVIRONMENT = "https://api.beta.superagent.sh"
+const ENVIRONMENT = "https://superagent-api.systems.kubernetes.testing.aws.zen.co.uk"
 
 const styles = {
   container: {

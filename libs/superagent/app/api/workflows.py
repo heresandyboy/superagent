@@ -188,9 +188,12 @@ async def invoke(
 
     workflow_steps = []
     for workflow_step in workflow_data.steps:
-        llm_model = LLM_MAPPING.get(workflow_step.agent.llmModel) or LLM_MAPPING.get(
-            workflow_step.agent.metadata.get("model")
-        )
+        llm_model = LLM_MAPPING.get(workflow_step.agent.llmModel)
+        metadata = workflow_step.agent.metadata or {}
+
+        if not llm_model and metadata.get("model"):
+            llm_model = workflow_step.agent.metadata.get("model")
+
         item = {
             "callbacks": {
                 "streaming": CustomAsyncIteratorCallbackHandler(),

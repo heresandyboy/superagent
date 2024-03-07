@@ -11,7 +11,8 @@ from app.utils.prisma import prisma
 
 # Create a color formatter
 formatter = colorlog.ColoredFormatter(
-    "%(log_color)s%(levelname)s:  %(message)s",
+    "%(asctime)s - %(log_color)s%(levelname)s:  %(message)s",
+    datefmt='%Y-%m-%d %H:%M:%S,%f',
     log_colors={
         "DEBUG": "cyan",
         "INFO": "green",
@@ -27,10 +28,12 @@ console_handler.setFormatter(formatter)
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(levelname)s: %(message)s",
+    format="%(asctime)s - %(levelname)s: %(message)s",
     handlers=[console_handler],
     force=True,
 )
+
+logger = logging.getLogger("main")
 
 app = FastAPI(
     title="Superagent",
@@ -54,7 +57,7 @@ async def add_process_time_header(request: Request, call_next):
     start_time = time.time()
     response = await call_next(request)
     process_time = time.time() - start_time
-    print(f"Total request time: {process_time} secs")
+    logger.debug(f"Total request time: {process_time} secs")
     return response
 
 

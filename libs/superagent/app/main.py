@@ -11,7 +11,7 @@ from app.utils.prisma import prisma
 
 # Create a color formatter
 formatter = colorlog.ColoredFormatter(
-    "%(asctime)s - %(log_color)s%(levelname)s:  %(message)s",
+    "%(log_color)s%(asctime)s %(levelname)s:  %(message)s",
     datefmt='%Y-%m-%d %H:%M:%S,%f',
     log_colors={
         "DEBUG": "cyan",

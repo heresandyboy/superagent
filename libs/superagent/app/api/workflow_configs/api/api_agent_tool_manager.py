@@ -43,6 +43,7 @@ from app.models.request import (
 )
 from app.utils.prisma import prisma
 from prisma.models import Agent as AgentModel
+from prisma.enums import ToolType
 
 from .base import BaseApiAgentManager
 
@@ -139,7 +140,8 @@ class ApiAgentToolManager(BaseApiAgentManager):
 
             new_tool = res.get("data", {})
 
-            logger.info(f"Created tool: {new_tool.name} - {assistant.get('name')}")
+            logger.info(
+                f"Created tool: {new_tool.name} - {assistant.get('name')}")
             return new_tool
         except Exception as err:
             logger.error(f"Error creating tool: {data} - Error: {err}")
@@ -150,12 +152,12 @@ class ApiAgentToolManager(BaseApiAgentManager):
         new_tool = await self.create_tool(
             assistant=self.parent_agent.dict(),
             data={
+                **data,
                 "name": new_agent.name,
-                "description": data.get("description"),
                 "metadata": {
                     "agentId": new_agent.id,
                 },
-                "type": "AGENT",
+                "type": ToolType.AGENT.value,
             },
         )
 
@@ -167,7 +169,8 @@ class ApiAgentToolManager(BaseApiAgentManager):
                 ),
                 api_user=self.api_user,
             )
-            logger.info(f"Added assistant: {new_agent.name} - {self.parent_agent.name}")
+            logger.info(
+                f"Added assistant: {new_agent.name} - {self.parent_agent.name}")
         except Exception as err:
             logger.error(
                 f"Error adding assistant: {new_agent} - {self.parent_agent} - Error: {err}"
@@ -200,7 +203,8 @@ class ApiAgentToolManager(BaseApiAgentManager):
             )
             logger.info(f"Deleted assistant: {assistant.get('name')}")
         except Exception as err:
-            logger.error(f"Error deleting assistant: {assistant} - Error: {err}")
+            logger.error(
+                f"Error deleting assistant: {assistant} - Error: {err}")
 
         tool = await self.get_agent_tool(assistant)
 
@@ -224,7 +228,8 @@ class ApiAgentToolManager(BaseApiAgentManager):
             )
             logger.info(f"Updated assistant: {assistant.get('name')}")
         except Exception as err:
-            logger.error(f"Error updating assistant: {assistant} - Error: {err}")
+            logger.error(
+                f"Error updating assistant: {assistant} - Error: {err}")
 
         tool = await self.get_agent_tool(assistant)
 

@@ -61,7 +61,7 @@ SEGMENT_WRITE_KEY = config("SEGMENT_WRITE_KEY", None)
 analytics.write_key = SEGMENT_WRITE_KEY
 
 router = APIRouter()
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
@@ -553,7 +553,8 @@ async def invoke(
             logger.error(f"Error in send_message: {error}")
             if SEGMENT_WRITE_KEY:
                 try:
-                    track_agent_invocation({"error": str(error), "status_code": 500})
+                    track_agent_invocation(
+                        {"error": str(error), "status_code": 500})
                 except Exception as e:
                     logger.error(f"Error tracking agent invocation: {e}")
             yield ("event: error\n" f"data: {error}\n\n")

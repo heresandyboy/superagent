@@ -1,3 +1,4 @@
+import logging
 from typing import Any, List
 
 from agentops.langchain_callback_handler import (
@@ -9,6 +10,8 @@ from app.agents.base import AgentBase
 from app.utils.callbacks import CustomAsyncIteratorCallbackHandler
 from app.utils.prisma import prisma
 from prisma.models import Workflow
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowBase:
@@ -33,38 +36,47 @@ class WorkflowBase:
         steps_output = []
 
         for stepIndex, step in enumerate(self.workflow.steps):
-            agent_config = await prisma.agent.find_unique_or_raise(
-                where={"id": step.agentId},
-                include={
-                    "llms": {"include": {"llm": True}},
-                    "datasources": {
-                        "include": {"datasource": {"include": {"vectorDb": True}}}
+            try:
+                logger.info(
+                    f"Processing step {stepIndex + 1} of {len(self.workflow.steps)}")
+                agent_config = await prisma.agent.find_unique_or_raise(
+                    where={"id": step.agentId},
+                    include={
+                        "llms": {"include": {"llm": True}},
+                        "datasources": {
+                            "include": {"datasource": {"include": {"vectorDb": True}}}
+                        },
+                        "tools": {"include": {"tool": True}},
                     },
-                    "tools": {"include": {"tool": True}},
-                },
-            )
-            agent_base = AgentBase(
-                agent_id=step.agentId,
-                enable_streaming=self.enable_streaming,
-                callbacks=self.constructor_callbacks,
-                session_id=self.session_id,
-                agent_config=agent_config,
-            )
+                )
+                agent_base = AgentBase(
+                    agent_id=step.agentId,
+                    enable_streaming=self.enable_streaming,
+                    callbacks=self.constructor_callbacks,
+                    session_id=self.session_id,
+                    agent_config=agent_config,
+                )
 
-            agent = await agent_base.get_agent()
-            agent_input = agent_base.get_input(
-                previous_output,
-                agent_type=agent_config.type,
-            )
+                agent = await agent_base.get_agent()
+                agent_input = agent_base.get_input(
+                    previous_output,
+                    agent_type=agent_config.type,
+                )
 
-            agent_response = await agent.ainvoke(
-                input=agent_input,
-                config={
-                    "callbacks": self.callbacks[stepIndex],
-                },
-            )
+                logger.info(f"Invoking agent for step {stepIndex + 1}")
+                agent_response = await agent.ainvoke(
+                    input=agent_input,
+                    config={
+                        "callbacks": self.callbacks[stepIndex],
+                    },
+                )
 
-            previous_output = agent_response.get("output")
-            steps_output.append(agent_response)
+                previous_output = agent_response.get("output")
+                steps_output.append(agent_response)
+                logger.info(f"Step {stepIndex + 1} completed successfully")
+            except Exception as e:
+                logger.error(f"Error in step {stepIndex + 1}: {str(e)}")
+                raise e
 
+        logger.info("All steps completed")
         return {"steps": steps_output, "output": previous_output}

@@ -48,6 +48,7 @@ analytics.write_key = SEGMENT_WRITE_KEY
 )
 async def create(body: WorkflowRequest, api_user=Depends(get_current_api_user)):
     """Endpoint for creating a workflow"""
+    logger.debug("Entering create workflow endpoint")
     try:
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Created Workflow")
@@ -57,6 +58,7 @@ async def create(body: WorkflowRequest, api_user=Depends(get_current_api_user)):
                 "apiUserId": api_user.id,
             }
         )
+        logger.debug(f"Created workflow data: {data}")
         return {"success": True, "data": data}
     except Exception as e:
         handle_exception(e)
@@ -70,6 +72,7 @@ async def create(body: WorkflowRequest, api_user=Depends(get_current_api_user)):
 )
 async def list(api_user=Depends(get_current_api_user), skip: int = 0, take: int = 50):
     """Endpoint for listing all workflows"""
+    logger.debug("Entering list workflows endpoint")
     try:
         import math
 
@@ -80,12 +83,15 @@ async def list(api_user=Depends(get_current_api_user), skip: int = 0, take: int 
             skip=skip,
             take=take,
         )
+        logger.debug(f"Fetched workflows data: {data}")
 
         # Get the total count of agents
         total_count = await prisma.workflow.count(where={"apiUserId": api_user.id})
+        logger.debug(f"Total count of workflows: {total_count}")
 
         # Calculate the total number of pages
         total_pages = math.ceil(total_count / take)
+        logger.debug(f"Total pages of workflows: {total_pages}")
 
         for workflow in data:
             for step in workflow.steps:
@@ -104,6 +110,8 @@ async def list(api_user=Depends(get_current_api_user), skip: int = 0, take: int 
 )
 async def get(workflow_id: str, api_user=Depends(get_current_api_user)):
     """Endpoint for getting a single workflow"""
+    logger.debug(
+        f"Entering get workflow endpoint for workflow_id: {workflow_id}")
     try:
         data = await prisma.workflow.find_first(
             where={"id": workflow_id, "apiUserId": api_user.id},
@@ -112,6 +120,7 @@ async def get(workflow_id: str, api_user=Depends(get_current_api_user)):
                 "workflowConfigs": True,
             },
         )
+        logger.debug(f"Fetched workflow data: {data}")
 
         for workflow_config in data.workflowConfigs:
             workflow_config.config = json.dumps(workflow_config.config)
@@ -134,6 +143,8 @@ async def workflow_update(
     workflow_id: str, body: WorkflowRequest, api_user=Depends(get_current_api_user)
 ):
     """Endpoint for patching a workflow"""
+    logger.debug(
+        f"Entering update workflow endpoint for workflow_id: {workflow_id}")
     try:
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Updated Workflow")
@@ -144,6 +155,7 @@ async def workflow_update(
                 "apiUserId": api_user.id,
             },
         )
+        logger.debug(f"Updated workflow data: {data}")
         return {"success": True, "data": data}
     except Exception as e:
         handle_exception(e)
@@ -156,11 +168,14 @@ async def workflow_update(
 )
 async def delete(workflow_id: str, api_user=Depends(get_current_api_user)):
     """Endpoint for deleting a specific workflow"""
+    logger.debug(
+        f"Entering delete workflow endpoint for workflow_id: {workflow_id}")
     try:
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Deleted Workflow")
         await prisma.workflowstep.delete_many(where={"workflowId": workflow_id})
         await prisma.workflow.delete(where={"id": workflow_id})
+        logger.debug(f"Deleted workflow with ID: {workflow_id}")
         return {"success": True, "data": None}
     except Exception as e:
         handle_exception(e)
@@ -177,15 +192,20 @@ async def invoke(
     api_user=Depends(get_current_api_user),
 ):
     """Endpoint for invoking a specific workflow"""
+    logger.debug(
+        f"Entering invoke workflow endpoint for workflow_id: {workflow_id}")
     if SEGMENT_WRITE_KEY:
         analytics.track(api_user.id, "Invoked Workflow")
 
     workflow_data = await prisma.workflow.find_unique(
         where={"id": workflow_id},
-        include={"steps": {"include": {"agent": True}, "order_by": {"order": "asc"}}},
+        include={"steps": {"include": {"agent": True},
+                           "order_by": {"order": "asc"}}},
     )
+    logger.debug(f"Fetched workflow data: {workflow_data}")
     session_id = body.sessionId or ""
     session_id = f"wf_{workflow_id}_{session_id}"
+    logger.debug(f"Session ID: {session_id}")
 
     workflow_steps = []
     for workflow_step in workflow_data.steps:
@@ -210,6 +230,7 @@ async def invoke(
             item["callbacks"]["session_tracker"] = session_tracker_handler
 
         workflow_steps.append(item)
+    logger.debug(f"Workflow steps: {workflow_steps}")
     workflow_callbacks = []
 
     for s in workflow_steps:
@@ -217,9 +238,11 @@ async def invoke(
         for _, v in s["callbacks"].items():
             callbacks.append(v)
         workflow_callbacks.append(callbacks)
+    logger.debug(f"Workflow callbacks: {workflow_callbacks}")
 
     input = body.input
     enable_streaming = body.enableStreaming
+    logger.debug(f"Input: {input}, Enable streaming: {enable_streaming}")
 
     agentops_api_key = config("AGENTOPS_API_KEY", default=None)
     agentops_org_key = config("AGENTOPS_ORG_KEY", default=None)
@@ -235,6 +258,7 @@ async def invoke(
         constructor_callbacks=[agentops_handler],
         session_id=session_id,
     )
+    logger.debug(f"Created workflow instance: {workflow}")
 
     def track_invocation(output):
         for index, workflow_step in enumerate(workflow_steps):
@@ -269,6 +293,7 @@ async def invoke(
                     raise exception
 
                 workflow_result = task.result()
+                logger.debug(f"Workflow result: {workflow_result}")
 
                 for index, workflow_step in enumerate(workflow_steps):
                     workflow_step_result = workflow_result.get("steps")[index]
@@ -277,11 +302,14 @@ async def invoke(
                         track_invocation(workflow_result)
 
                     if "intermediate_steps" in workflow_step_result:
+                        logger.info("Streaming intermediate steps...")
                         for step in workflow_step_result["intermediate_steps"]:
                             (agent_action_message_log, tool_response) = step
                             function = agent_action_message_log.tool
                             args = agent_action_message_log.tool_input
                             if function and args:
+                                logger.debug(
+                                    f"Streaming function call: {function}, {args}, {tool_response}")
                                 yield (
                                     "event: function_call\n"
                                     f'data: {{"function": "{function}", '
@@ -291,6 +319,7 @@ async def invoke(
                                 )
 
             except Exception as error:
+                logger.error(f"Error in send_message: {error}")
                 yield (f"event: error\n" f"data: {error}\n\n")
 
                 if SEGMENT_WRITE_KEY:
@@ -306,7 +335,6 @@ async def invoke(
                             }
                         )
 
-                logger.error(f"Error in send_message: {error}")
             finally:
                 for workflow_step in workflow_steps:
                     workflow_step["callbacks"]["streaming"].done.set()
@@ -318,6 +346,7 @@ async def invoke(
     output = await workflow.arun(
         input,
     )
+    logger.debug(f"Workflow output: {output}")
 
     if SEGMENT_WRITE_KEY:
         track_invocation(output)
@@ -340,6 +369,8 @@ async def add_step(
     workflow_id: str, body: WorkflowStepRequest, api_user=Depends(get_current_api_user)
 ):
     """Endpoint for creating a workflow step"""
+    logger.debug(
+        f"Entering add workflow step endpoint for workflow_id: {workflow_id}")
     try:
         if SEGMENT_WRITE_KEY:
             analytics.track(api_user.id, "Created Workflow Step")
@@ -350,6 +381,7 @@ async def add_step(
             },
             include={"agent": True, "workflow": True},
         )
+        logger.debug(f"Created workflow step data: {data}")
         return {"success": True, "data": data}
     except Exception as e:
         handle_exception(e)
@@ -363,12 +395,15 @@ async def add_step(
 )
 async def list_steps(workflow_id: str, api_user=Depends(get_current_api_user)):
     """Endpoint for listing all steps of a workflow"""
+    logger.debug(
+        f"Entering list workflow steps endpoint for workflow_id: {workflow_id}")
     try:
         data = await prisma.workflowstep.find_many(
             where={"workflowId": workflow_id},
             order={"order": "asc"},
             include={"agent": True},
         )
+        logger.debug(f"Fetched workflow steps data: {data}")
 
         return {"success": True, "data": data}
     except Exception as e:

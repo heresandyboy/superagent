@@ -29,114 +29,150 @@ class FunctionCalling(AgentBase):
         )
 
     async def _set_llm(self):
-        openai_llm = await prisma.llm.find_first(
-            where={
-                "provider": LLMProvider.OPENAI.value,
-                "apiUserId": self.agent_config.apiUserId,
-            }
-        )
+        try:
+            openai_llm = await prisma.llm.find_first(
+                where={
+                    "provider": LLMProvider.OPENAI.value,
+                    "apiUserId": self.agent_config.apiUserId,
+                }
+            )
 
-        if not openai_llm:
-            raise Exception("Please make sure you have an OpenAI LLM configured.")
+            if not openai_llm:
+                raise Exception(
+                    "Please make sure you have an OpenAI LLM configured.")
 
-        class AgentLLM:
-            llm = openai_llm
+            class AgentLLM:
+                llm = openai_llm
 
-        self.agent_config.llms = [AgentLLM()]
+            self.agent_config.llms = [AgentLLM()]
+            logger.info("OpenAI LLM set for FunctionCalling agent")
+        except Exception as e:
+            logger.error(
+                f"Error setting OpenAI LLM for FunctionCalling agent: {e}")
+            raise e
 
     async def _set_tools_return_direct(self):
-        for agent_tool in self.agent_config.tools:
-            agent_tool.tool.returnDirect = True
+        try:
+            for agent_tool in self.agent_config.tools:
+                agent_tool.tool.returnDirect = True
+            logger.info("Tools set to return direct for FunctionCalling agent")
+        except Exception as e:
+            logger.error(
+                f"Error setting tools to return direct for FunctionCalling agent: {e}")
+            raise e
 
     async def init(self):
-        self.agent_config.type = AgentType.SUPERAGENT
-        self.agent_config.llmModel = LLM_REVERSE_MAPPING.get("gpt-3.5-turbo-0125")
-        self.agent_id = self.agent_config.id
+        try:
+            self.agent_config.type = AgentType.SUPERAGENT
+            self.agent_config.llmModel = LLM_REVERSE_MAPPING.get(
+                "gpt-3.5-turbo-0125")
+            self.agent_id = self.agent_config.id
 
-        await self._set_llm()
-        await self._set_tools_return_direct()
+            await self._set_llm()
+            await self._set_tools_return_direct()
 
-        return self
+            logger.info("FunctionCalling agent initialized")
+            return self
+        except Exception as e:
+            logger.error(f"Error initializing FunctionCalling agent: {e}")
+            raise e
 
 
 class LLMAgent(AgentBase):
     async def get_agent(self):
-        enable_streaming = self.enable_streaming
-        agent_config = self.agent_config
-        session_id = self.session_id
+        try:
+            enable_streaming = self.enable_streaming
+            agent_config = self.agent_config
+            session_id = self.session_id
 
-        class CustomAgentExecutor:
-            async def ainvoke(self, input, *_, **kwargs):
-                function_calling_res = {}
+            class CustomAgentExecutor:
+                async def ainvoke(self, input, *_, **kwargs):
+                    function_calling_res = {}
 
-                if len(agent_config.tools) > 0:
-                    function_calling = await FunctionCalling(
-                        enable_streaming=False,
-                        session_id=session_id,
-                        agent_config=agent_config.copy(
-                            deep=True,
-                        ),
-                        agent_id=agent_config.id,
-                    ).init()
-                    function_calling_agent = await function_calling.get_agent()
+                    if len(agent_config.tools) > 0:
+                        function_calling = await FunctionCalling(
+                            enable_streaming=False,
+                            session_id=session_id,
+                            agent_config=agent_config.copy(
+                                deep=True,
+                            ),
+                            agent_id=agent_config.id,
+                        ).init()
+                        function_calling_agent = await function_calling.get_agent()
 
-                    function_calling_res = await function_calling_agent.ainvoke(
-                        input=input
-                    )
+                        function_calling_res = await function_calling_agent.ainvoke(
+                            input=input
+                        )
+                        logger.debug(
+                            f"Function calling result: {function_calling_res}")
 
-                model = agent_config.metadata.get("model", "gpt-3.5-turbo-0125")
-                prompt = agent_config.prompt
-                api_key = agent_config.llms[0].llm.apiKey
+                    model = agent_config.metadata.get(
+                        "model", "gpt-3.5-turbo-0125")
+                    prompt = agent_config.prompt
+                    api_key = agent_config.llms[0].llm.apiKey
 
-                if function_calling_res.get("output"):
-                    INPUT_TEMPLATE = "{input}\n Context: {context}\n"
-                    input = INPUT_TEMPLATE.format(
-                        input=input, context=function_calling_res.get("output")
-                    )
-                else:
-                    INPUT_TEMPLATE = "{input}"
-                    input = INPUT_TEMPLATE.format(input=input)
+                    if function_calling_res.get("output"):
+                        INPUT_TEMPLATE = "{input}\n Context: {context}\n"
+                        input = INPUT_TEMPLATE.format(
+                            input=input, context=function_calling_res.get(
+                                "output")
+                        )
+                    else:
+                        INPUT_TEMPLATE = "{input}"
+                        input = INPUT_TEMPLATE.format(input=input)
 
-                res = await acompletion(
-                    api_key=api_key,
-                    model=model,
-                    messages=[
-                        {"content": prompt, "role": "system"},
-                        {
-                            "content": input,
-                            "role": "user",
-                        },
-                    ],
-                    stream=enable_streaming,
-                )
+                    logger.debug(f"Input to LLM: {input}")
 
-                output = ""
-                if enable_streaming:
-                    streaming_callback = None
-                    for callback in kwargs["config"]["callbacks"]:
-                        if isinstance(callback, CustomAsyncIteratorCallbackHandler):
-                            streaming_callback = callback
+                    try:
+                        res = await acompletion(
+                            api_key=api_key,
+                            model=model,
+                            messages=[
+                                {"content": prompt, "role": "system"},
+                                {
+                                    "content": input,
+                                    "role": "user",
+                                },
+                            ],
+                            stream=enable_streaming,
+                        )
+                    except Exception as e:
+                        logger.error(f"Error calling LLM: {e}")
+                        raise e
 
-                    if not streaming_callback:
-                        raise Exception("Streaming Callback not found")
-                    await streaming_callback.on_llm_start()
+                    output = ""
+                    if enable_streaming:
+                        streaming_callback = None
+                        for callback in kwargs["config"]["callbacks"]:
+                            if isinstance(callback, CustomAsyncIteratorCallbackHandler):
+                                streaming_callback = callback
 
-                    async for chunk in res:
-                        token = chunk.choices[0].delta.content
-                        if token:
-                            output += token
-                            await streaming_callback.on_llm_new_token(token)
+                        if not streaming_callback:
+                            raise Exception("Streaming Callback not found")
+                        await streaming_callback.on_llm_start()
 
-                    streaming_callback.done.set()
-                else:
-                    output = res.choices[0].message.content
+                        async for chunk in res:
+                            token = chunk.choices[0].delta.content
+                            if token:
+                                output += token
+                                await streaming_callback.on_llm_new_token(token)
 
-                return {
-                    **function_calling_res,
-                    "input": input,
-                    "output": output,
-                }
+                        streaming_callback.done.set()
+                    else:
+                        output = res.choices[0].message.content
 
-        agent_executor = CustomAgentExecutor()
+                    logger.info(f"LLM output: {output}")
 
-        return agent_executor
+                    return {
+                        **function_calling_res,
+                        "input": input,
+                        "output": output,
+                    }
+
+            agent_executor = CustomAgentExecutor()
+
+            logger.info("LLMAgent initialized")
+            return agent_executor
+        except Exception as e:
+            logger.error(f"Error initializing LLMAgent: {e}")
+            raise e
